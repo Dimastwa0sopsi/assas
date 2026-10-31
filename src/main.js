@@ -1,21 +1,344 @@
-import * as THREE from 'three';
+/**
+ * GIMVERSE — точка входа: оболочка, маршрутизация, инициализация сети и хранилища.
+ */
 import './style.css';
+import { h, clear, toast } from './core/ui.js';
+import { store, load, updateProfile, subscribe, notify, rememberUser } from './core/store.js';
+import { net } from './core/net.js';
+import { drawPortrait } from './three/avatar.js';
+import { receiveNetworkMap } from './core/library.js';
+import { sfx, syncVolume } from './core/audio.js';
 
-document.querySelector('#app').innerHTML=`<div class="hud"><div class="top"><div class="brand"><div class="logo">SA</div><div class="brandtext">SAN ANDREAS<br><span>FREE ROAM</span></div></div><div class="location"><small>ШТАТ САН-АНДРЕАС</small><strong>LOS SANTOS</strong></div></div><div class="intro"><small>ДОБРО ПОЖАЛОВАТЬ В</small><h1>San Andreas</h1><p>Твой город. Твои правила.</p></div><div class="drift">DRIFT × <span id="score">0</span></div><div class="bottom"><div class="mapwrap"><div class="map"><canvas id="map" width="154" height="154"></canvas></div><div class="maplabel"><small>ТВОЁ МЕСТОПОЛОЖЕНИЕ</small>LOS SANTOS / ДЕЛЬ ПЕРРО</div></div><div class="speed"><span class="number" id="speed">0</span><span class="unit">КМ/Ч</span><span class="vehicle">● &nbsp; SUNSET GT</span></div></div><div class="controls"><div class="control"><span class="key">W</span><span class="key">S</span> ГАЗ / ТОРМОЗ</div><div class="control"><span class="key">A</span><span class="key">D</span> ПОВОРОТ</div><div class="control"><span class="key">X</span> ДРИФТ</div><div class="control"><span class="key">R</span> СБРОС</div></div></div>`;
-const scene=new THREE.Scene();scene.background=new THREE.Color(0xb6d5d5);scene.fog=new THREE.Fog(0xc2d5cb,110,390);
-const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,1000);const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.body.prepend(renderer.domElement);
-scene.add(new THREE.HemisphereLight(0xe5f5ff,0x8f8766,2));const sun=new THREE.DirectionalLight(0xffe4b0,2.4);sun.position.set(-70,130,50);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-100;sun.shadow.camera.right=100;sun.shadow.camera.top=100;sun.shadow.camera.bottom=-100;scene.add(sun);
-const mat=(c,roughness=1)=>new THREE.MeshStandardMaterial({color:c,roughness});const mats={grass:mat(0xa6ad78),road:mat(0x505653),line:mat(0xe4d3a1),side:mat(0xbcb8a6),sand:mat(0xd8c69d),water:mat(0x78aeb6),trunk:mat(0x79634d),leaf:mat(0x617e51),glass:mat(0x253d43,.3),red:mat(0xb03e32,.45),tire:mat(0x252a29),chrome:mat(0xc8c6b2,.4)};
-function box(w,h,d,m,x,y,z,shadow=true){const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=shadow;o.receiveShadow=true;scene.add(o);return o}
-box(1200,1,1200,mats.water,0,-1,0,false);box(570,1,570,mats.grass,0,0,0,false);box(80,.15,570,mats.sand,-260,.58,0,false);
-// Grid of broad streets, with sidewalks and lane markings.
-const streets=[-200,-100,0,100,200];for(const p of streets){box(570,.12,20,mats.side,0,.58,p,false);box(570,.14,16,mats.road,0,.67,p,false);box(20,.12,570,mats.side,p,.58,0,false);box(16,.14,570,mats.road,p,.67,0,false);for(let i=-275;i<280;i+=13){box(6,.03,.16,mats.line,i,.76,p,false);box(.16,.03,6,mats.line,p,.76,i,false)}}
-// Deterministic city blocks.
-let seed=17;function rnd(){seed=(seed*16807)%2147483647;return(seed-1)/2147483646}const colors=[0xd5c6a8,0xc5b8a0,0xe1d2b7,0xb6b6aa,0xd0b69b,0xaaa999];
-for(let gx=-2;gx<2;gx++)for(let gz=-2;gz<2;gz++){let cx=gx*100+50,cz=gz*100+50;for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){if(rnd()<.13)continue;let x=cx+a*25+(rnd()-.5)*3,z=cz+b*25+(rnd()-.5)*3;let downtown=Math.abs(cx)<100&&Math.abs(cz)<100;let h=downtown?12+rnd()*42:6+rnd()*15,w=16+rnd()*5,d=15+rnd()*7;let building=box(w,h,d,mat(colors[Math.floor(rnd()*colors.length)]),x,h/2+.6,z);if(h>20){for(let yy=4;yy<h-2;yy+=5){for(let xx=-w/2+3;xx<w/2-1;xx+=5){box(2,2.4,.1,mats.glass,x+xx,yy,z+d/2+.07,false);box(2,2.4,.1,mats.glass,x+xx,yy,z-d/2-.07,false)}}}else{box(w*.6,1,d*.7,mat(0x8d8b7d),x,h+1,z)}}}
-function palm(x,z,s=1){const t=new THREE.Mesh(new THREE.CylinderGeometry(.45*s,.8*s,10*s,7),mats.trunk);t.position.set(x,5*s+.6,z);t.castShadow=true;scene.add(t);for(let i=0;i<7;i++){let leaf=new THREE.Mesh(new THREE.ConeGeometry(1.3*s,8*s,5),mats.leaf);leaf.position.set(x+Math.cos(i*Math.PI*2/7)*2.5*s,10*s,z+Math.sin(i*Math.PI*2/7)*2.5*s);leaf.rotation.z=Math.PI/2-.25;leaf.rotation.y=-i*Math.PI*2/7;leaf.castShadow=true;scene.add(leaf)}}for(let z=-270;z<280;z+=22){palm(-222,z,.8+rnd()*.4);palm(-239,z+9,.8+rnd()*.4)}for(let x=-180;x<=180;x+=40){palm(x,12,.75);palm(x,-12,.75)}
-// Player car faces positive Z.
-const car=new THREE.Group();scene.add(car);function part(w,h,d,m,x,y,z){let o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;car.add(o);return o}part(4.2,1.05,8,mats.red,0,1.25,0);part(3.65,1.1,3.9,mats.red,0,2.3,-.4);part(3.4,.7,.08,mats.glass,0,2.35,1.58);part(3.4,.7,.08,mats.glass,0,2.35,-2.38);part(.08,.65,2.9,mats.glass,1.84,2.35,-.4);part(.08,.65,2.9,mats.glass,-1.84,2.35,-.4);part(4.25,.25,.2,mats.chrome,0,1,4.05);part(4.25,.25,.2,mats.chrome,0,1,-4.05);for(let x of [-1.35,1.35]){part(.8,.3,.08,mat(0xffe5a1),x,1.4,4.06);part(.8,.3,.08,mat(0xa82018),x,1.4,-4.06)}for(let x of [-2.1,2.1])for(let z of [-2.4,2.4]){let wheel=new THREE.Mesh(new THREE.CylinderGeometry(.85,.85,.5,12),mats.tire);wheel.rotation.z=Math.PI/2;wheel.position.set(x,.85,z);wheel.castShadow=true;car.add(wheel);let hub=new THREE.Mesh(new THREE.CylinderGeometry(.42,.42,.52,12),mats.chrome);hub.rotation.z=Math.PI/2;hub.position.copy(wheel.position);car.add(hub)}
-car.position.set(0,.75,-20);let angle=0,speed=0,vx=0,vz=0,score=0;const keys={};let started=false;addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key.toLowerCase()))e.preventDefault();if(!started){document.querySelector('.intro').style.opacity=0;started=true}if(e.key.toLowerCase()==='r'){car.position.set(0,.75,-20);angle=0;speed=0;vx=0;vz=0}});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-const map=document.querySelector('#map').getContext('2d');function drawMap(){map.fillStyle='#aab99f';map.fillRect(0,0,154,154);map.fillStyle='#d5c6a0';map.fillRect(0,0,22,154);map.fillStyle='#e3e2ce';for(let p of streets){let c=(p+285)/570*154;map.fillRect(c-2,0,4,154);map.fillRect(0,c-2,154,4)}let x=(car.position.x+285)/570*154,z=(car.position.z+285)/570*154;map.save();map.translate(x,z);map.rotate(-angle);map.fillStyle='#262e2b';map.beginPath();map.moveTo(0,7);map.lineTo(-5,-5);map.lineTo(5,-5);map.closePath();map.fill();map.strokeStyle='#fff';map.lineWidth=1.5;map.stroke();map.restore()}
-let last=performance.now();function animate(now){requestAnimationFrame(animate);let dt=Math.min((now-last)/1000,.05);last=now;let gas=keys.w||keys.arrowup,brake=keys.s||keys.arrowdown,left=keys.a||keys.arrowleft,right=keys.d||keys.arrowright,drift=keys.x;if(gas)speed+=24*dt;if(brake)speed-=28*dt;speed*=Math.pow(.985,dt*60);speed=THREE.MathUtils.clamp(speed,-18,48);let steer=(left?1:0)-(right?1:0);angle+=steer*dt*1.4*Math.min(Math.abs(speed)/12,1)*(speed<0?-1:1)*(drift?1.5:1);let targetX=Math.sin(angle)*speed,targetZ=Math.cos(angle)*speed;let grip=drift?1.5:7;vx+=(targetX-vx)*Math.min(1,grip*dt);vz+=(targetZ-vz)*Math.min(1,grip*dt);car.position.x=THREE.MathUtils.clamp(car.position.x+vx*dt,-275,275);car.position.z=THREE.MathUtils.clamp(car.position.z+vz*dt,-275,275);car.rotation.y=angle;car.rotation.z=THREE.MathUtils.lerp(car.rotation.z,-steer*Math.min(Math.abs(speed)/150,.13),dt*4);let active=drift&&Math.abs(speed)>8&&steer!==0;if(active)score+=dt*10;document.querySelector('.drift').classList.toggle('on',active);document.querySelector('#score').textContent=Math.floor(score);document.querySelector('#speed').textContent=Math.round(Math.abs(speed)*3);const desired=new THREE.Vector3(car.position.x-Math.sin(angle)*22,12,car.position.z-Math.cos(angle)*22);camera.position.lerp(desired,1-Math.exp(-3*dt));camera.lookAt(car.position.x,2,car.position.z);drawMap();renderer.render(scene,camera)}camera.position.set(0,12,-42);requestAnimationFrame(animate);addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+import { renderHome } from './screens/home.js';
+import { renderAvatar } from './screens/avatar.js';
+import { renderGames } from './screens/games.js';
+import { renderDev } from './screens/dev.js';
+import { renderOnline } from './screens/online.js';
+import { renderAdmin } from './screens/admin.js';
+import { renderSettings } from './screens/settings.js';
+
+const ROUTES = {
+  home: { title: 'Главная', em: '🏠', render: renderHome },
+  games: { title: 'Игры', em: '🎮', render: renderGames },
+  avatar: { title: 'Аватар', em: '🧍', render: renderAvatar },
+  dev: { title: 'Разработка', em: '🛠️', render: renderDev },
+  online: { title: 'Онлайн', em: '🌐', render: renderOnline },
+  admin: { title: 'Администрация', em: '🛡️', render: renderAdmin },
+  settings: { title: 'Настройки', em: '⚙️', render: renderSettings },
+};
+
+/* ============================================================
+   Применение настроек к документу
+   ============================================================ */
+function applySettings() {
+  const s = store.settings;
+  document.documentElement.dataset.theme = s.theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.motion = s.motion === false ? 'off' : 'on';
+  document.documentElement.style.setProperty('--ui', String(s.uiScale || 1));
+  syncVolume();
+}
+
+/* ============================================================
+   Оболочка
+   ============================================================ */
+const main = h('main.main');
+const portrait = h('canvas', { style: { width: 40, height: 40, borderRadius: 12, border: '1px solid var(--line)', background: 'var(--surface-2)' } });
+const nameEl = h('b.nowrap', store.profile.name);
+const coinsEl = h('span.badge.coin', `💰 ${store.profile.coins}`);
+const coinsTop = h('span.badge.coin', `💰 ${store.profile.coins}`);
+const roleEl = h('span.badge');
+const netPill = h('button.net-pill');
+
+function refreshProfile() {
+  nameEl.textContent = store.profile.name;
+  coinsEl.textContent = `💰 ${store.profile.coins}`;
+  coinsTop.textContent = coinsEl.textContent;
+  const r = store.profile.role;
+  roleEl.textContent = r === 'owner' ? '👑 владелец' : r === 'admin' ? '🛡️ админ' : r === 'moderator' ? '🧑‍⚖️ модер' : '🧍 игрок';
+  roleEl.className = 'badge ' + (r === 'owner' ? 'admin' : r === 'admin' ? 'admin' : r === 'moderator' ? 'mod' : '');
+  try {
+    drawPortrait(portrait, store.profile.avatar, 40);
+  } catch {
+    portrait.textContent = '🧍';
+  }
+}
+
+function refreshNet() {
+  const map = {
+    online: ['ok', 'Сервер подключён'],
+    connecting: ['warn', 'Подключение…'],
+    local: ['warn', 'Локальный режим'],
+    offline: ['err', 'Офлайн'],
+  };
+  const [cls, label] = map[net.state] || map.offline;
+  clear(netPill);
+  netPill.append(h(`span.dot.${cls}` + (net.state === 'connecting' ? '.pulse' : '')), h('span', `${label} · 👥 ${net.count()}`));
+}
+
+const navButtons = new Map();
+
+function buildShell() {
+  const nav = h('nav.nav');
+  const mk = (id) => {
+    const r = ROUTES[id];
+    const b = h('button', h('span.em', r.em), h('span', r.title), h('span.cnt', { style: { display: 'none' } }));
+    b.onclick = () => {
+      sfx.tap();
+      location.hash = `#/${id}`;
+    };
+    navButtons.set(id, b);
+    return b;
+  };
+  nav.append(mk('home'), mk('games'), mk('avatar'), mk('dev'), mk('online'), h('div.sep'), mk('admin'), mk('settings'));
+
+  const sidebar = h(
+    'aside.sidebar',
+    h('div.brand', h('div.mark', 'G'), h('div.txt', h('b', 'GIMVERSE'), h('small', '3D платформа'))),
+    nav,
+    h(
+      'div.side-foot',
+      netPill,
+      h('div.profile-card', portrait, h('div', { style: { minWidth: 0 } }, h('div.row', nameEl, roleEl), h('div', coinsEl)))
+    )
+  );
+  netPill.onclick = () => {
+    sfx.tap();
+    location.hash = '#/online';
+  };
+
+  const topbar = h(
+    'div.topbar',
+    h('div.brand', { style: { padding: 0 } }, h('div.mark', { style: { width: 34, height: 34, borderRadius: 11, fontSize: 15 } }, 'G'), h('div.txt', h('b', { style: { fontSize: 15 } }, 'GIMVERSE'))),
+    h('div.spacer'),
+    coinsTop,
+    h('button.btn.icon.ghost', { onclick: () => location.assign('#/settings'), title: 'Настройки' }, '⚙️')
+  );
+
+  const moreSheet = () => {
+    const backdrop = h('div.backdrop');
+    const close = () => backdrop.remove();
+    backdrop.addEventListener('click', (e) => e.target === backdrop && close());
+    const card = h(
+      'div.modal',
+      h('div.modal-head', h('h2', 'Ещё'), h('div.spacer'), h('button.btn.icon.ghost', { onclick: close }, '✕')),
+      h(
+        'div.modal-body',
+        h('div.list', ['avatar', 'admin', 'settings'].map((id) => h('button.item', { style: { width: '100%', font: 'inherit', color: 'inherit', textAlign: 'left', cursor: 'pointer' }, onclick: () => { close(); location.assign(`#/${id}`); } }, h('span', { style: { fontSize: 20 } }, ROUTES[id].em), h('b', ROUTES[id].title))))
+      )
+    );
+    backdrop.appendChild(card);
+    document.getElementById('modal-root').appendChild(backdrop);
+  };
+
+  const tabbar = h(
+    'div.tabbar',
+    ...['home', 'games', 'dev', 'online'].map((id) => {
+      const b = h('button', h('span.em', ROUTES[id].em), h('span', id === 'dev' ? 'Создать' : ROUTES[id].title));
+      b.dataset.route = id;
+      b.onclick = () => {
+        sfx.tap();
+        location.hash = `#/${id}`;
+      };
+      navButtons.set('tab-' + id, b);
+      return b;
+    }),
+    (() => {
+      const b = h('button', h('span.em', '☰'), h('span', 'Ещё'));
+      b.onclick = moreSheet;
+      return b;
+    })()
+  );
+
+  const shell = h('div.shell', sidebar, h('div', { style: { display: 'contents' } }, topbar, main, tabbar));
+  document.getElementById('app').appendChild(shell);
+}
+
+/* ============================================================
+   Маршрутизация
+   ============================================================ */
+let cleanup = null;
+let currentRoute = null;
+
+function currentId() {
+  const raw = (location.hash || '#/home').replace(/^#\/?/, '').split('?')[0];
+  return ROUTES[raw] ? raw : 'home';
+}
+
+function navigate(force = false) {
+  const id = currentId();
+  if (!force && id === currentRoute) return;
+  currentRoute = id;
+  cleanup?.();
+  cleanup = null;
+  clear(main);
+  main.scrollTop = 0;
+  document.title = `${ROUTES[id].title} · GIMVERSE`;
+  for (const [key, btn] of navButtons) {
+    const active = key === id || key === 'tab-' + id;
+    btn.classList.toggle('active', active);
+  }
+  try {
+    cleanup = ROUTES[id].render(main, { go: (r) => location.assign(`#/${r}`), refresh: () => navigate(true) }) || null;
+  } catch (err) {
+    console.error('[router]', err);
+    main.appendChild(h('div.page', h('section.card', h('h3', 'Ошибка экрана'), h('p.muted', String(err.message)))));
+  }
+}
+
+window.addEventListener('hashchange', () => navigate());
+window.addEventListener('gim:refresh', () => navigate(true));
+
+/* ============================================================
+   Сетевые события → хранилище
+   ============================================================ */
+function bindNet() {
+  net.on((ev) => {
+    switch (ev.type) {
+      case 'map':
+        receiveNetworkMap(ev.map);
+        toast(`Новая карта: ${ev.map.name}`, 'info');
+        break;
+      case 'map.remove': {
+        const i = store.library.maps.findIndex((m) => m.id === ev.id);
+        if (i >= 0) {
+          store.library.maps.splice(i, 1);
+          store.save();
+          notify({ event: 'library' });
+        }
+        break;
+      }
+      case 'admin': {
+        const me = store.profile.id;
+        const p = ev.payload || {};
+        if (p.target === me || p.userId === me) {
+          if (ev.action === 'ban') {
+            updateProfile({ bannedUntil: p.ms ? Date.now() + p.ms : Date.now() + 31536000000 });
+            toast(`Вы забанены: ${p.reason || 'без причины'}`, 'err', 8000);
+          } else if (ev.action === 'unban') {
+            updateProfile({ bannedUntil: 0 });
+            toast('Бан снят', 'ok');
+          } else if (ev.action === 'mute') {
+            updateProfile({ mutedUntil: Date.now() + (p.minutes || 15) * 60000 });
+            toast(`Вам выдан мут на ${p.minutes || 15} мин`, 'warn');
+          } else if (ev.action === 'unmute') {
+            updateProfile({ mutedUntil: 0 });
+          } else if (ev.action === 'role') {
+            updateProfile({ role: p.role });
+            toast(`Ваша роль: ${p.role}`, 'ok');
+          }
+        }
+        if (ev.action === 'map.moderate') {
+          const m = store.library.maps.find((x) => x.id === p.id);
+          if (m) {
+            m.status = p.status;
+            store.admin.moderation[m.id] = p.status;
+            store.save();
+            notify({ event: 'library' });
+          }
+        }
+        break;
+      }
+      case 'announce':
+        toast(`📢 ${ev.text}`, 'warn', 7000);
+        break;
+      case 'players.changed':
+        refreshNet();
+        break;
+      case 'status':
+        refreshNet();
+        if (ev.state === 'online') flushQueue();
+        break;
+      case 'welcome':
+        flushQueue();
+        break;
+      default:
+        break;
+    }
+  });
+}
+
+function flushQueue() {
+  const queue = store.library.queue;
+  if (!queue.length) return;
+  let sent = 0;
+  for (const q of [...queue]) {
+    const m = store.library.maps.find((x) => x.id === q.id);
+    if (m && net.publishMap(m)) {
+      store.library.queue = store.library.queue.filter((x) => x.id !== q.id);
+      sent++;
+    }
+  }
+  if (sent) {
+    store.save();
+    notify({ event: 'queue' });
+    toast(`Синхронизировано карт: ${sent}`, 'ok');
+  }
+}
+
+/* ============================================================
+   Первый запуск
+   ============================================================ */
+function onboarding() {
+  if (localStorage.getItem('gimverse.seen')) return;
+  localStorage.setItem('gimverse.seen', '1');
+  const backdrop = h('div.backdrop');
+  const close = () => backdrop.remove();
+  const card = h(
+    'div.modal.wide',
+    h('div.modal-head', h('div', h('h2', '👋 Добро пожаловать в GIMVERSE'), h('div.small.dim', '3D-платформа: игры, персонаж, создание карт, онлайн и администрация'))),
+    h(
+      'div.modal-body',
+      h(
+        'div.list',
+        [
+          ['🎮', 'Играйте в 3D-игры', '«Небесный паркур» и «Кристальная арена» — обе с монетами, рекордами и онлайном.'],
+          ['🧍', 'Соберите персонажа', 'Цвета, лицо, причёска, уборы и аксессуары. Монеты зарабатываются в играх.'],
+          ['🛠️', 'Создавайте свои миры', 'Соберите карту в GimPrograms 3D Editor, вставьте JSON в разделе «Разработка» и опубликуйте с донатами.'],
+          ['🌐', 'Онлайн', 'Сервер wss, чат, приглашения. Если сервер недоступен — работает локальный режим между вкладками.'],
+          ['🛡️', 'Администрация', 'Вход по коду, роли, баны, модерация карт и объявления.'],
+        ].map(([em, t, d]) => h('div.item', h('span', { style: { fontSize: 20 } }, em), h('div', h('b', t), h('div.small.dim', d))))
+      ),
+      h('p.hint', 'Подсказка: клавиша Esc в игре — пауза и быстрая смена качества графики.')
+    ),
+    h('div.modal-foot', h('button.btn.soft', { onclick: () => { close(); location.assign('#/dev'); } }, '🛠️ Хочу создать карту'), h('button.btn.primary', { onclick: () => { close(); location.assign('#/games'); } }, '🎮 Играть'))
+  );
+  backdrop.appendChild(card);
+  document.getElementById('modal-root').appendChild(backdrop);
+}
+
+/* ============================================================
+   Старт
+   ============================================================ */
+function boot() {
+  load();
+  applySettings();
+  buildShell();
+  refreshProfile();
+  refreshNet();
+  bindNet();
+
+  subscribe((_s, payload) => {
+    if (['coins', 'profile', 'avatar', 'inventory', 'settings'].includes(payload.event)) {
+      refreshProfile();
+      if (payload.event === 'settings') applySettings();
+    }
+  });
+
+  if (!location.hash) location.hash = '#/home';
+  navigate(true);
+  onboarding();
+
+  if (store.settings.autoConnect) net.connect(store.settings.serverUrl);
+  else net.setState('offline');
+
+  net.send({ t: 'hello', profile: net.selfProfile() });
+  rememberUser({ id: store.profile.id, name: store.profile.name, role: store.profile.role, avatar: store.profile.avatar });
+
+  window.addEventListener('error', (e) => {
+    console.error(e.error || e.message);
+    toast('Ошибка: ' + (e.message || 'неизвестно'), 'err', 5000);
+  });
+
+}
+
+boot();

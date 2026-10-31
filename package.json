@@ -1,1 +1,19 @@
-{"name":"san-andreas-drive","version":"1.0.0","type":"module","scripts":{"dev":"vite --host 0.0.0.0","build":"vite build"},"dependencies":{"three":"^0.170.0","vite":"^6.0.0"}}
+{
+  "name": "gimverse",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --import ./tests/harness/register.mjs --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "three": "^0.170.0",
+    "vite": "^6.0.0"
+  },
+  "devDependencies": {
+    "jsdom": "^30.1.3"
+  },
+  "description": "GIMVERSE — 3D-платформа: игры, редактор персонажа, импорт карт из GimPrograms 3D Editor, онлайн-режим и администрация."
+}

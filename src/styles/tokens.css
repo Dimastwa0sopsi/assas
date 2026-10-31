@@ -1,0 +1,77 @@
+/* ============================================================
+   GIMVERSE — дизайн-токены
+   ============================================================ */
+:root {
+  /* цвет */
+  --bg: #080b14;
+  --bg-2: #0d1120;
+  --bg-3: #121829;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-2: rgba(255, 255, 255, 0.075);
+  --surface-3: rgba(255, 255, 255, 0.12);
+  --line: rgba(255, 255, 255, 0.09);
+  --line-2: rgba(255, 255, 255, 0.16);
+  --text: #e9edf9;
+  --text-2: #a4adc8;
+  --text-3: #6f7893;
+  --accent: #7c5cff;
+  --accent-2: #22d3ee;
+  --accent-3: #f472b6;
+  --ok: #34d399;
+  --warn: #fbbf24;
+  --danger: #fb7185;
+  --grad: linear-gradient(135deg, #7c5cff 0%, #22d3ee 100%);
+  --grad-warm: linear-gradient(135deg, #fb7185 0%, #fbbf24 100%);
+  --grad-cool: linear-gradient(135deg, #34d399 0%, #22d3ee 100%);
+  --grad-hero: radial-gradient(120% 120% at 12% 8%, rgba(124, 92, 255, 0.55) 0%, rgba(34, 211, 238, 0.18) 38%, rgba(8, 11, 20, 0) 72%),
+    radial-gradient(90% 90% at 88% 12%, rgba(244, 114, 182, 0.35) 0%, rgba(8, 11, 20, 0) 62%);
+
+  /* геометрия */
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --r-full: 999px;
+  --gap: 16px;
+  --pad: 20px;
+  --sidebar: 264px;
+  --tabbar: 66px;
+  --ui: 1;
+
+  /* тень */
+  --sh-1: 0 2px 10px rgba(0, 0, 0, 0.28);
+  --sh-2: 0 14px 34px rgba(0, 0, 0, 0.42);
+  --sh-glow: 0 0 0 1px rgba(124, 92, 255, 0.35), 0 10px 34px rgba(124, 92, 255, 0.28);
+
+  /* анимация */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur: 0.28s;
+
+  --font: "Inter", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+html[data-theme='light'] {
+  --bg: #f2f4fb;
+  --bg-2: #ffffff;
+  --bg-3: #f7f8fd;
+  --surface: rgba(20, 24, 40, 0.045);
+  --surface-2: rgba(20, 24, 40, 0.075);
+  --surface-3: rgba(20, 24, 40, 0.11);
+  --line: rgba(20, 24, 40, 0.1);
+  --line-2: rgba(20, 24, 40, 0.18);
+  --text: #14182a;
+  --text-2: #4d5570;
+  --text-3: #7b839c;
+  --sh-1: 0 2px 10px rgba(20, 24, 40, 0.08);
+  --sh-2: 0 18px 40px rgba(20, 24, 40, 0.14);
+}
+
+html[data-motion='off'] *,
+html[data-motion='off'] *::before,
+html[data-motion='off'] *::after {
+  animation-duration: 0.001ms !important;
+  transition-duration: 0.001ms !important;
+}
