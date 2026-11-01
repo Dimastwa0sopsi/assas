@@ -54,6 +54,37 @@ npm test         # 28 тестов: разбор карт, физика, хра�
 
 Сообщения: `hello`, `welcome`, `state` (позиция ~10 Гц), `chat`, `map.publish`, `map.remove`, `invite`, `announce`, `admin.action` (ban/unban/mute/unmute/role/kick/map.moderate), `ping/pong`.
 
+## Публикация на GitHub Pages
+
+Сайт уже настроен на публикацию через GitHub Actions: `.github/workflows/deploy.yml` собирает `dist/` и выкладывает его на `https://dimastwa0sopsi.github.io/assas/`.
+
+**Что нужно сделать один раз** (доступно только владельцу репозитория):
+
+1. Откройте репозиторий → **Settings → Pages**.
+2. В блоке **Build and deployment → Source** выберите **GitHub Actions** (вместо «Deploy from a branch»).
+3. Готово: после каждого пуша в `main` или `arena/81463210-assas` сайт пересобирается сам. Проверить ход можно во вкладке **Actions** → «Deploy to GitHub Pages».
+
+Ручной запуск без пуша: **Actions → Deploy to GitHub Pages → Run workflow**.
+
+### Почему это работает
+
+- `vite.config.js` содержит `base: './'` — пути к ассетам относительные, поэтому сайт грузится из подкаталога `/assas/`, а не из корня домена. Без этой строки Pages отдаст пустую страницу с ошибками 404 на `/assets/...`.
+- Роутинг в приложении хешевый (`#/games`, `#/dev`…), поэтому отдельная страница 404 и SPA-fallback не нужны.
+- Сайт отдаётся по HTTPS, так что `wss://`-подключение к игровому серверу работает без предупреждений браузера.
+
+### Вариант без Actions (если нужен «Deploy from a branch»)
+
+Тогда Pages должен смотреть на папку со сборкой, а не на исходники:
+
+```bash
+npm run build
+git add -f dist            # dist/ в .gitignore — добавляем принудительно
+git commit -m "build"
+git push
+```
+
+и в **Settings → Pages** указать ветку и путь `/dist`. Минус: сборку придётся коммитить после каждого изменения, поэтому основной вариант — Actions.
+
 ## Архитектура
 
 ```
